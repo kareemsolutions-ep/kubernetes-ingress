@@ -8,11 +8,12 @@ from suite.custom_resources_utils import patch_virtual_server_from_yaml,\
 from suite.resources_utils import wait_before_test, get_events, get_first_pod_name
 
 
-def assert_reject_event_emitted(virtual_server_setup, new_list, previous_list):
+def assert_reject_event_emitted(virtual_server_setup, new_list, previous_list, is_deployment):
     item_name = f"{virtual_server_setup.namespace}/{virtual_server_setup.vs_name}"
     text_invalid = f"VirtualServer {item_name} is invalid and was rejected"
+    expected_amount = 1 if is_deployment else 3
     new_event = new_list[len(new_list) - 1]
-    assert len(new_list) - len(previous_list) == 1
+    assert len(new_list) - len(previous_list) == expected_amount
     assert text_invalid in new_event.message
 
 
@@ -45,10 +46,11 @@ def assert_response_404(virtual_server_setup):
                          indirect=True)
 class TestVirtualServerValidation:
     def test_virtual_server_behavior(self,
-                                     kube_apis,
+                                     kube_apis, cli_arguments,
                                      ingress_controller_prerequisites,
                                      crd_ingress_controller,
                                      virtual_server_setup):
+        is_deployment = True if cli_arguments['deployment-type'] == 'deployment' else False
         ic_pod_name = get_first_pod_name(kube_apis.v1, ingress_controller_prerequisites.namespace)
 
         print("Step 1: initial check")
@@ -64,7 +66,7 @@ class TestVirtualServerValidation:
                                        virtual_server_setup.namespace)
         wait_before_test(1)
         step_2_list = get_events(kube_apis.v1, virtual_server_setup.namespace)
-        assert_reject_event_emitted(virtual_server_setup, step_2_list, step_1_list)
+        assert_reject_event_emitted(virtual_server_setup, step_2_list, step_1_list, is_deployment)
         assert_vs_conf_not_exists(kube_apis, ic_pod_name, ingress_controller_prerequisites.namespace,
                                   virtual_server_setup)
         assert_response_404(virtual_server_setup)
@@ -76,7 +78,7 @@ class TestVirtualServerValidation:
                                        virtual_server_setup.namespace)
         wait_before_test(1)
         step_3_list = get_events(kube_apis.v1, virtual_server_setup.namespace)
-        assert_reject_event_emitted(virtual_server_setup, step_3_list, step_2_list)
+        assert_reject_event_emitted(virtual_server_setup, step_3_list, step_2_list, is_deployment)
         assert_vs_conf_not_exists(kube_apis, ic_pod_name, ingress_controller_prerequisites.namespace,
                                   virtual_server_setup)
         assert_response_404(virtual_server_setup)
@@ -100,7 +102,7 @@ class TestVirtualServerValidation:
                                         virtual_server_setup.namespace)
         wait_before_test(1)
         step_5_list = get_events(kube_apis.v1, virtual_server_setup.namespace)
-        assert_reject_event_emitted(virtual_server_setup, step_5_list, step_4_list)
+        assert_reject_event_emitted(virtual_server_setup, step_5_list, step_4_list, is_deployment)
         assert_vs_conf_not_exists(kube_apis, ic_pod_name, ingress_controller_prerequisites.namespace,
                                   virtual_server_setup)
         assert_response_404(virtual_server_setup)
